@@ -28,36 +28,33 @@
     }
     button:disabled { background: #ccc; cursor: not-allowed; }
     
-    /* 📐 Scanner Framing Layout */
-    .scanner-outer-wrapper {
+    /* 📐 The Ultimate Camera Window Fix: Normal structure, but masked via CSS clip-path */
+    .scanner-container {
       margin: 5px auto;
       max-width: 320px;
-      height: 180px; 
-      overflow: hidden;
-      position: relative;
-      border-radius: 12px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      display: none;
-    }
-    .scanner-container {
-      width: 100%;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0.75); 
       background: #000;
+      border-radius: 12px;
+      display: none;
+      
+      /* ✂️ Slices away the top 20% and bottom 20% of the camera stream automatically,
+            leaving a perfectly thin barcode-proportioned view box that cannot break initialization. */
+      clip-path: inset(20% 0% 20% 0% round 12px); 
+      margin-top: -35px;    /* Pulls up space to offset the top cut */
+      margin-bottom: -35px; /* Pulls up space to offset the bottom cut */
     }
-    #reader { width: 100%; }
+    #reader { 
+      width: 100%; 
+    }
 
     /* 🪪 Optimized & Compact Player Info Result Box */
     .card {
       margin-top: 15px;
       background: white;
-      padding: 15px 20px; /* Reduced internal spacing */
+      padding: 15px 20px;
       border-radius: 10px;
       display: inline-block;
       box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-      width: 290px; /* Explicit narrower width */
+      width: 290px;
       text-align: left;
       box-sizing: border-box;
     }
@@ -114,10 +111,8 @@
   
   <button id="scanBtn">Start Barcode Scanner</button>
 
-  <div class="scanner-outer-wrapper" id="scannerWrapper">
-    <div class="scanner-container">
-      <div id="reader"></div>
-    </div>
+  <div class="scanner-container" id="scannerContainer">
+    <div id="reader"></div>
   </div>
 
   <div class="spinner" id="spinner"></div>
@@ -140,7 +135,7 @@
     const scanBtn = document.getElementById('scanBtn');
     const spinner = document.getElementById('spinner');
     const resultDiv = document.getElementById('result');
-    const scannerWrapper = document.getElementById('scannerWrapper');
+    const scannerContainer = document.getElementById('scannerContainer');
 
     let html5QrcodeScanner = null;
     let lastScanId = "";
@@ -165,7 +160,8 @@
     }
 
     function startScan() {
-      scannerWrapper.style.display = "block";
+      // Show container immediately so library can evaluate the elements correctly
+      scannerContainer.style.display = "block";
       scanBtn.innerText = "Scanner Active";
       scanBtn.disabled = true;
 
@@ -173,8 +169,8 @@
       
       const config = { 
         fps: 20, 
-        qrbox: { width: 250, height: 110 }, 
-        aspectRatio: 1.333333 
+        qrbox: { width: 260, height: 100 }, // Centers a neat scanning target region
+        aspectRatio: 1.0 // Standard square capture profile for maximum reliability
       };
 
       html5QrcodeScanner.start(
@@ -191,7 +187,7 @@
     function stopScan() {
       if (html5QrcodeScanner) {
         html5QrcodeScanner.stop().then(() => {
-          scannerWrapper.style.display = "none";
+          scannerContainer.style.display = "none";
           scanBtn.innerText = "Start Barcode Scanner";
           scanBtn.disabled = false;
         }).catch(err => console.error("Error shutting down camera module.", err));
@@ -249,4 +245,7 @@
       }, 5000);
     }
 
-    scanBtn.addEventListener("click", startScan
+    scanBtn.addEventListener("click", startScan);
+  </script>
+</body>
+</html>
