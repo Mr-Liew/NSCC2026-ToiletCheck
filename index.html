@@ -3,6 +3,7 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3rd NATIONAL OPEN TEAM CHESS CHAMPIONSHIP 2026 - PMX Trophy</title>
+  <!-- 📦 High-performance HTML5 Barcode/QR Engine Included via CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <style>
     body {
@@ -26,7 +27,6 @@
     }
     button:disabled { background: #ccc; cursor: not-allowed; }
     
-    /* Optimized Live Scan Scanner Box Layout */
     .scanner-container {
       margin: 10px auto;
       max-width: 360px;
@@ -36,9 +36,7 @@
       background: #000;
       display: none;
     }
-    #reader {
-      width: 100%;
-    }
+    #reader { width: 100%; }
 
     .card {
       margin-top: 15px;
@@ -90,9 +88,21 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(3600deg); }
     }
-    .logo {
-      width: 120px;
-      margin-bottom: 10px;
+    .logo { width: 120px; margin-bottom: 10px; }
+
+    /* 🛠️ Debug Box Styling */
+    .debug-box {
+      margin: 20px auto;
+      max-width: 360px;
+      background: #333;
+      color: #00ff00;
+      padding: 12px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.85em;
+      text-align: left;
+      overflow-x: auto;
+      white-space: pre-wrap;
     }
   </style>
 </head>
@@ -126,23 +136,32 @@
     <p id="duration" style="text-align:center; font-size:1.1em; color:#333;"></p>
   </div>
 
+  <!-- 🛠️ Diagnostic Console Window -->
+  <div class="debug-box" id="debugConsole">Console initialized. Waiting for scan...</div>
+
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyDV5MkyTWQPOcgPtr079tHVafVuH1CuIU3CZoJKJXa67hdwOF4hF1lnP_HlZiLiEWh/exec";
+    // ⚠️ CRITICAL: Replace this string with your LATEST Web App URL from Apps Script!
+    const API_URL = "https://script.google.com/macros/s/AKfycbwmFvw0WSKSYbrSjN3egFHmirf2P82VLxieQWw6bNBM8jaDZV-xxQ4cyXniq9ROsN72/exec";
+    
     const scanBtn = document.getElementById('scanBtn');
     const spinner = document.getElementById('spinner');
     const resultDiv = document.getElementById('result');
     const scannerContainer = document.getElementById('scannerContainer');
+    const debugConsole = document.getElementById('debugConsole');
 
     let html5QrcodeScanner = null;
     let lastScanId = "";
     let lastScanTime = 0;
     let resetTimer = null;
 
+    function logToScreen(message) {
+      debugConsole.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
+    }
+
     function onScanSuccess(decodedText, decodedResult) {
       const userId = decodedText.trim();
       const now = Date.now();
 
-      // Prevent processing the exact same barcode multiple times within 5 seconds
       if (userId === lastScanId && now - lastScanTime < 5000) {
         return;
       }
@@ -150,33 +169,11 @@
       lastScanId = userId;
       lastScanTime = now;
 
-      // Visual feedback updates
       spinner.style.display = "block";
       resultDiv.style.display = "none";
 
-      // Execute backend API request
-      async function getUserData(userId) {
-  try {
-    // 🛠️ FIX: Added mode and redirect configurations to prevent mobile fetch dropouts
-    const res = await fetch(`${API_URL}?userId=${encodeURIComponent(userId)}`, {
-      method: "GET",
-      mode: "cors",
-      redirect: "follow"
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP error! Status: ${res.status}`);
-    }
-
-    const data = await res.json();
-    showResult(data);
-  } catch (err) { 
-    console.error("Fetch full error log:", err);
-    alert("Connection Error! Please check your deployment settings or check your Web App URL."); 
-  } finally {
-    spinner.style.display = "none";
-  }
-}
+      logToScreen(`Scanned ID: "${userId}". Fetching data...`);
+      getUserData(userId);
     }
 
     function startScan() {
@@ -184,54 +181,54 @@
       scanBtn.innerText = "Scanner Running...";
       scanBtn.disabled = true;
 
-      // Instantiate HTML5 QR Code / Barcode Decoder
       html5QrcodeScanner = new Html5Qrcode("reader");
-
-      // Configure setup for standard badges (Looks for 1D Barcodes + QR codes)
-      const config = { 
-        fps: 15, 
-        qrbox: { width: 280, height: 160 }, // Landscape configuration structured for standard barcodes
-        aspectRatio: 1.0 
-      };
+      const config = { fps: 15, qrbox: { width: 280, height: 160 }, aspectRatio: 1.0 };
 
       html5QrcodeScanner.start(
         { facingMode: "environment" }, 
         config, 
         onScanSuccess,
-        (errorMessage) => {
-          // Silent catch for live video stream frame parsing failures
-        }
+        (errorMessage) => {}
       ).catch(err => {
-        alert("Camera Initialization Error: " + err);
+        logToScreen(`Camera Error: ${err.message}`);
         stopScan();
       });
     }
 
-    function stopScan() {
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.stop().then(() => {
-          scannerContainer.style.display = "none";
-          scanBtn.innerText = "Start Barcode Scanner";
-          scanBtn.disabled = false;
-        }).catch(err => console.error("Error stopping engine:", err));
-      }
-    }
-
     async function getUserData(userId) {
       try {
-        const res = await fetch(`${API_URL}?userId=${encodeURIComponent(userId)}`);
-        const data = await res.json();
+        const fullUrl = `${API_URL}?userId=${encodeURIComponent(userId)}`;
+        logToScreen(`Sending GET to: ${fullUrl.substring(0, 60)}...`);
+
+        const res = await fetch(fullUrl, {
+          method: "GET",
+          redirect: "follow"
+        });
+
+        logToScreen(`Response received. Status: ${res.status}`);
+
+        const textData = await res.text();
+        logToScreen(`Raw content length: ${textData.length} chars.`);
+
+        // Parse JSON manually to intercept plain-text engine execution blocks
+        const data = JSON.parse(textData);
+        
+        if (data.error) {
+          logToScreen(`Application Error: ${data.error}`);
+          alert(`Error: ${data.error}`);
+          return;
+        }
+
+        logToScreen(`Success! Displaying card for ${data.name}`);
         showResult(data);
       } catch (err) { 
-        alert("Fetch error: " + err); 
+        logToScreen(`Execution Failure: ${err.name} - ${err.message}`);
       } finally {
         spinner.style.display = "none";
       }
     }
 
     function showResult(data) {
-      if (data.error) { alert(data.error); return; }
-
       resultDiv.style.display = "block";
       document.getElementById("name").innerText = data.name;
       document.getElementById("uid").innerText = data.id;
@@ -243,23 +240,16 @@
       document.getElementById("status").className = "status " + (data.status === "In" ? "in" : "out");
       document.getElementById("profile").src = data.profile || "";
 
-      // Evaluation rules for duration logic (light red warning if away >= 5 mins)
       if (data.status === "Out" && data.duration) {
         document.getElementById("duration").innerText = `Duration: ${data.duration}`;
-
         const durationParts = data.duration.split(/[ms ]/).filter(Boolean);
         const minutes = parseInt(durationParts[0]) || 0;
-        if (minutes >= 5) {
-          resultDiv.style.background = "#ffcccc"; 
-        } else {
-          resultDiv.style.background = "white";
-        }
+        resultDiv.style.background = (minutes >= 5) ? "#ffcccc" : "white";
       } else {
         document.getElementById("duration").innerText = "";
         resultDiv.style.background = "white";
       }
 
-      // Automatically reset card info back to hidden after 5 seconds
       if (resetTimer) clearTimeout(resetTimer);
       resetTimer = setTimeout(() => {
         resultDiv.style.display = "none";
@@ -268,6 +258,7 @@
         document.getElementById("profile").src = "";
         document.getElementById("duration").innerText = "";
         resultDiv.style.background = "white";
+        logToScreen("Screen auto-reset complete. Ready for next scan.");
       }, 5000);
     }
 
