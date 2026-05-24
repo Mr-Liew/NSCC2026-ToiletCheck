@@ -3,6 +3,7 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3rd NATIONAL OPEN TEAM CHESS CHAMPIONSHIP 2026 - PMX Trophy</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Arial;
@@ -25,8 +26,8 @@
     }
     button:disabled { background: #ccc; cursor: not-allowed; }
     
-    /* Camera Preview Styling */
-    .video-container {
+    /* Optimized Live Scan Scanner Box Layout */
+    .scanner-container {
       margin: 10px auto;
       max-width: 360px;
       border-radius: 12px;
@@ -35,10 +36,8 @@
       background: #000;
       display: none;
     }
-    video {
+    #reader {
       width: 100%;
-      height: auto;
-      display: block;
     }
 
     .card {
@@ -89,9 +88,8 @@
     }
     @keyframes spin {
       0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      100% { transform: rotate(3600deg); }
     }
-
     .logo {
       width: 120px;
       margin-bottom: 10px;
@@ -99,17 +97,15 @@
   </style>
 </head>
 <body>
-  <!-- 🏆 App Logo -->
-  <img class="logo" src="https://i.postimg.cc/fLf608pp/Asset-1-2x-Copy.png" alt="App Logo">
 
+  <img class="logo" src="https://i.postimg.cc/fLf608pp/Asset-1-2x-Copy.png" alt="App Logo">
   <h2>3rd NATIONAL OPEN TEAM CHESS CHAMPIONSHIP 2026</h2>
   <h4>PMX Trophy — Toilet Check</h4>
   
   <button id="scanBtn">Start Barcode Scanner</button>
 
-  <!-- 📸 Live Camera Preview Feed -->
-  <div class="video-container" id="videoContainer">
-    <video id="video" autoplay playsinline muted></video>
+  <div class="scanner-container" id="scannerContainer">
+    <div id="reader"></div>
   </div>
 
   <div class="spinner" id="spinner"></div>
@@ -131,99 +127,73 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwmFvw0WSKSYbrSjN3egFHmirf2P82VLxieQWw6bNBM8jaDZV-xxQ4cyXniq9ROsN72/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbyDV5MkyTWQPOcgPtr079tHVafVuH1CuIU3CZoJKJXa67hdwOF4hF1lnP_HlZiLiEWh/exec";
     const scanBtn = document.getElementById('scanBtn');
     const spinner = document.getElementById('spinner');
     const resultDiv = document.getElementById('result');
-    const videoElement = document.getElementById('video');
-    const videoContainer = document.getElementById('videoContainer');
+    const scannerContainer = document.getElementById('scannerContainer');
 
+    let html5QrcodeScanner = null;
     let lastScanId = "";
     let lastScanTime = 0;
     let resetTimer = null;
-    let stream = null;
-    let scanningActive = false;
 
-    async function startScan() {
-      // Check browser compatibility for BarcodeDetector API
-      if (!("BarcodeDetector" in window)) {
-        alert("⚠️ Barcode Detection API is not supported on this browser/device. Please use Google Chrome on Android/Windows or ensure HTTPS is active.");
+    function onScanSuccess(decodedText, decodedResult) {
+      const userId = decodedText.trim();
+      const now = Date.now();
+
+      // Prevent processing the exact same barcode multiple times within 5 seconds
+      if (userId === lastScanId && now - lastScanTime < 5000) {
         return;
       }
 
-      if (scanningActive) return; // Prevent multiple streams
+      lastScanId = userId;
+      lastScanTime = now;
 
-      try {
-        // Request back camera access
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { exact: "environment" } }
-        }).catch(() => {
-          // Fallback to any available camera if exact back camera fails
-          return navigator.mediaDevices.getUserMedia({ video: true });
-        });
+      // Visual feedback updates
+      spinner.style.display = "block";
+      resultDiv.style.display = "none";
 
-        videoElement.srcObject = stream;
-        videoContainer.style.display = "block";
-        scanBtn.innerText = "Scanner Active...";
-        scanBtn.disabled = true;
-        scanningActive = true;
-
-        // Initialize Detector (Supports common barcode types including Code 128, QR Codes, EAN, etc.)
-        const formats = await BarcodeDetector.getSupportedFormats();
-        const barcodeDetector = new BarcodeDetector({ formats: formats });
-
-        // Continuous processing loop
-        function renderLoop() {
-          if (!scanningActive) return;
-
-          if (videoElement.readyState === videoElement.HAVE_CURRENT_DATA) {
-            barcodeDetector.detect(videoElement)
-              .then(barcodes => {
-                if (barcodes.length > 0) {
-                  const userId = barcodes[0].rawValue.trim();
-                  const now = Date.now();
-
-                  // 5-second anti-spam delay for identical scans
-                  if (userId === lastScanId && now - lastScanTime < 5000) {
-                    requestAnimationFrame(renderLoop);
-                    return;
-                  }
-
-                  lastScanId = userId;
-                  lastScanTime = now;
-
-                  spinner.style.display = "block";
-                  resultDiv.style.display = "none";
-
-                  getUserData(userId);
-                }
-                requestAnimationFrame(renderLoop);
-              })
-              .catch(err => {
-                console.error("Detection error:", err);
-                requestAnimationFrame(renderLoop);
-              });
-          } else {
-            requestAnimationFrame(renderLoop);
-          }
-        }
-
-        requestAnimationFrame(renderLoop);
-
-      } catch (err) {
-        alert("Camera Access Error: " + err);
-        stopCamera();
-      }
+      // Execute backend API request
+      getUserData(userId);
     }
 
-    function stopCamera() {
-      scanningActive = false;
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+    function startScan() {
+      scannerContainer.style.display = "block";
+      scanBtn.innerText = "Scanner Running...";
+      scanBtn.disabled = true;
+
+      // Instantiate HTML5 QR Code / Barcode Decoder
+      html5QrcodeScanner = new Html5Qrcode("reader");
+
+      // Configure setup for standard badges (Looks for 1D Barcodes + QR codes)
+      const config = { 
+        fps: 15, 
+        qrbox: { width: 280, height: 160 }, // Landscape configuration structured for standard barcodes
+        aspectRatio: 1.0 
+      };
+
+      html5QrcodeScanner.start(
+        { facingMode: "environment" }, 
+        config, 
+        onScanSuccess,
+        (errorMessage) => {
+          // Silent catch for live video stream frame parsing failures
+        }
+      ).catch(err => {
+        alert("Camera Initialization Error: " + err);
+        stopScan();
+      });
+    }
+
+    function stopScan() {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          scannerContainer.style.display = "none";
+          scanBtn.innerText = "Start Barcode Scanner";
+          scanBtn.disabled = false;
+        }).catch(err => console.error("Error stopping engine:", err));
       }
-      videoContainer.style.display = "none";
-      scanBtn.innerText = "Start Barcode Scanner";
-      scanBtn.disabled = false;
     }
 
     async function getUserData(userId) {
@@ -252,7 +222,7 @@
       document.getElementById("status").className = "status " + (data.status === "In" ? "in" : "out");
       document.getElementById("profile").src = data.profile || "";
 
-      // Duration display logic (light red background warning if >= 5 minutes)
+      // Evaluation rules for duration logic (light red warning if away >= 5 mins)
       if (data.status === "Out" && data.duration) {
         document.getElementById("duration").innerText = `Duration: ${data.duration}`;
 
@@ -268,7 +238,7 @@
         resultDiv.style.background = "white";
       }
 
-      // Auto-reset after 5 seconds
+      // Automatically reset card info back to hidden after 5 seconds
       if (resetTimer) clearTimeout(resetTimer);
       resetTimer = setTimeout(() => {
         resultDiv.style.display = "none";
