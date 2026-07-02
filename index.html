@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3rd NATIONAL OPEN TEAM CHESS CHAMPIONSHIP 2026 - PMX Trophy</title>
+  <title>NATIONAL SCHOLASTIC CHESS CHAMPIONSHIP 2026</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <style>
     body {
@@ -56,7 +56,7 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* 📋 Active Dynamic Tracking Board Section */
+    /* 📋 Active Dynamic Tracking Board Section  */
     .board-title {
       text-align: left;
       max-width: 310px;
@@ -136,10 +136,10 @@
 </head>
 <body>
 
-  <h2>3rd NATIONAL OPEN TEAM CHESS CHAMPIONSHIP 2026</h2>
-  <h4>PMX Trophy — Toilet Occupancy Board</h4>
+  <h2>NATIONAL SCHOLASTIC CHESS CHAMPIONSHIP 2026</h2>
+  <h4>Toilet Occupancy Board</h4>
   
-  <button id="scanBtn">Start Barcode Scanner</button>
+  <button id="scanBtn">Start QR Code Scanner</button>
 
   <div class="scanner-container" id="scannerContainer">
     <div id="reader"></div>
@@ -148,11 +148,10 @@
   <div class="spinner" id="spinner"></div>
 
   <div class="board-title">Players Currently In Toilet:</div>
-  <div id="activeBoard">
-    </div>
+  <div id="activeBoard"></div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycby0nEGKDbVbokbMK8jZTkQv7PhC-scO5Yb1ZIoTg1P_-OimV7t3ghNPmO38XRo_Chqr/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwxC5a65iHafoNRnqxijnveXN_nJXtaH5jiVKgxv3BvIk0kCXaltXozHILBWDWVaDuK/exec";
     
     const scanBtn = document.getElementById('scanBtn');
     const spinner = document.getElementById('spinner');
@@ -185,7 +184,8 @@
       scanBtn.disabled = true;
 
       html5QrcodeScanner = new Html5Qrcode("reader");
-      const config = { fps: 20, qrbox: { width: 260, height: 100 }, aspectRatio: 1.0 };
+      // Keeping a square viewport config suited well for QR codes
+      const config = { fps: 20, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 };
 
       html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, () => {})
       .catch(err => {
@@ -218,13 +218,12 @@
     }
 
     function handleBoardUpdate(data, userId) {
-      // 🚽 POV FIX: Matches your target sheet configuration rules perfectly
       if (data.status === "In") {
         // Enters toilet -> Push card onto your visual view dashboard
         activePlayers[userId] = {
           id: data.id,
           name: data.name,
-          team: data.nationality,
+          category: data.category || data.nationality, // Looks for data.category from your web app backend response
           outTime: new Date() // Tracks counting runtime locally 
         };
       } else if (data.status === "Out") {
@@ -267,11 +266,12 @@
         // Bind manual tap click handler directly onto container layout
         card.onclick = () => manualClear(userId, player.name);
 
+        // UI Label updated to read "Category"
         card.innerHTML = `
           <div class="timer-tag" id="timer-${userId}">0m 0s</div>
           <h3>${player.name}</h3>
           <p><b>User ID:</b> ${player.id}</p>
-          <p><b>Team:</b> ${player.team}</p>
+          <p><b>Category:</b> ${player.category || ''}</p>
         `;
 
         activeBoard.appendChild(card);
